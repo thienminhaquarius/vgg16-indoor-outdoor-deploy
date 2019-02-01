@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Computer Vision As A Service</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js"></script>
+
+	<style>
+		.btn-file {
+			position: relative;
+			overflow: hidden;
+		}
+		.btn-file input[type=file] {
+			position: absolute;
+			top: 0;
+			right: 0;
+			min-width: 100%;
+			min-height: 100%;
+			font-size: 100px;
+			text-align: right;
+			filter: alpha(opacity=0);
+			opacity: 0;
+			outline: none;
+			background: white;
+			cursor: inherit;
+			display: block;
+		}
+
+		/* #img-upload{
+			width: 100%;
+		} */
+		.loader {
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			z-index: 1;
+			margin-left: -25px;
+			margin-top: 10px;
+			border-radius: 50%;
+			width: 50px;
+			height: 50px;
+			-webkit-animation: spin 2s linear infinite;
+			animation: spin 2s linear infinite;
+
+			border-top: 15px solid #dd4f43;
+			border-right: 15px solid #ffcd42;
+			border-bottom: 15px solid #1ba160;
+			border-left: 15px solid #ffffff;
+			}
+
+			/* Safari */
+			@-webkit-keyframes spin {
+			0% { -webkit-transform: rotate(0deg); }
+			100% { -webkit-transform: rotate(360deg); }
+			}
+
+			@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
+
+		.footer {
+			clear: both;
+			position: relative;
+			height: 450px;
+			margin-top: 100px;
+		}
+	</style>
+</head>
+
+<body>
+
+	<div class="container">
+		<div class="row">
+			<br>
+			<br>
+			<h2>Convolutional neural network for Image Classification </h2>
+			<h3>Upload An Image to predict whether It is Indoor or Outdoor image!</h3>
+			<h3>Upload ảnh chụp trong nhà/ ngoài trời để dự đoán ảnh là ảnh trong nhà hay ngoài trời!</h3>
+			<br>
+			<br>
+		</div>
+		<div class="row text-center">
+			<div class="col-md-12">
+				<div class="form-group">
+					<label>Upload Image</label>
+					<div class="input-group">
+						<span class="input-group-btn">
+							<span class="btn btn-default btn-file" id="browseBtn">
+								Browse… <input type="file" id="imgInp" accept="image/jpeg, image/png">
+							</span>
+						</span>
+						<input type="text" class="form-control" readonly>
+					</div>
+					<img id='img-upload' />
+				</div>
+			</div>
+		</div>
+		<div class="row text-center">
+			<div class="col-md-12">
+				<button id="predict" type="button" class="btn btn-primary btn-lg" disabled> Predict Image</button>
+			</div>
+
+		</div>
+		<br>
+		<div class="row text-center">
+			<div class="col-md-12">
+				<h2 id="result" hidden>Outdoor</h2>
+			</div>
+		</div>
+		<div class="row text-center">
+			<div class=" col-md-12">
+				<div id="loaderSpin" hidden>
+					<div class="loader"></div>
+					<div>
+						<h4>Please wait ...</h4>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="footer">
+		<hr>
+		<div class="container">
+			<div class="row">
+				<h2>Use Deep Learning for image classification
+				</h2>
+				<ul class="list-group list-group-flush">
+					<li class="list-group-item">Use VGG16 Notop to get image feature</li>
+					<li class="list-group-item">Dataset 800 Images: 400 Indoor/ 400 Outdoor</li>
+					<li class="list-group-item">Classifier: Support Vector Machine</li>
+					<li class="list-group-item">Framework and Library: Tensorflow, Keras, Flask, VGG16, SVM, Heroku ...</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		var imgStr = ''
+
+		function getImgStr(str) {
+			return str.replace(/^data:image\/(png|jpg);base64,/, '')
+		}
+
+		$(document).ready(function () {
+
+			$(document).on('change', '.btn-file :file', function () {
+				var input = $(this),
+					label = input.val().replace(/\\/g, '/').replace(/.*\//, '');
+				input.trigger('fileselect', [label]);
+			});
+
+			$('.btn-file :file').on('fileselect', function (event, label) {
+
+				var input = $(this).parents('.input-group').find(':text'),
+					log = label;
+
+				if (input.length) {
+					input.val(log);
+				} else {
+					if (log) alert(log);
+				}
+
+			});
+			function readURL(input) {
+				if (input.files && input.files[0]) {
+
+					var reader = new FileReader();
+
+					reader.onload = function (e) {
+						$('#img-upload').attr('src', e.target.result);
+						imgStr = e.target.result.replace(/^data:image\/(png|jpg|jpeg);base64,/, '')
+						$("#predict").attr('disabled', false);
+						$("#result").attr('hidden', true);
+					}
+
+					reader.readAsDataURL(input.files[0]);
+				}
+			}
+
+			$("#imgInp").change(function () {
+				readURL(this);
+			});
+
+			$("#predict").click(function (event) {
+				$("#predict").attr('disabled', true);
+				$("#loaderSpin").attr('hidden', false);
+				$("#result").attr('hidden', true);
+				$("#browseBtn").attr('disabled', true);
+				$("#imgInp").attr('disabled', true);
+				let message = {
+					imgStr: imgStr,
+				}
+
+				
+				$.post("http://127.0.0.1:5000/predict", JSON.stringify(message), function (response) {
+				// $.post("https://uit-deploy-classifier.herokuapp.com/predict", JSON.stringify(message), function (response) {
+					$("#loaderSpin").attr('hidden', true);
+					$("#result").attr('hidden', false);
+					$("#browseBtn").attr('disabled', false);
+					$("#imgInp").attr('disabled', false);
+					$("#result").text(response.prediction);
+				}).fail(function (err) {
+					//reset all
+					// console.log('err:',err)
+					alert('Có lỗi xảy ra, reset Page!')
+					document.location.reload()
+				});
+			})
+		});
+
+	</script>
+</body>
+
+</html>
